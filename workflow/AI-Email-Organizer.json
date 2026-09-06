@@ -1,0 +1,537 @@
+{
+  "name": "AI Email Organizer",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "082fb606-74c9-4525-93f7-29e1ed3982cb",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "S9rD6j402dZZFtQK",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "16ee746c-f7d4-4a0f-a80a-96543d4b4f1c",
+      "name": "Get a message",
+      "webhookId": "1473ac61-6022-461a-848f-e5d8cd48eb79",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "S9rD6j402dZZFtQK",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash-lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an intelligent email analysis assistant for an automated personal productivity system.\n\nYour job is to analyze the email provided below and determine whether it requires an actionable task and/or a calendar event.\n\nIMPORTANT:\n- Read the email subject, sender, and body carefully.\n- Do NOT assume the email is empty.\n- The email data comes from the \"Get a message\" node.\n- Ignore any previous email, previous execution, or previous model output.\n- Analyze ONLY the email provided below.\n- Return ONLY valid JSON.\n- Do not use Markdown.\n- Do not add explanations before or after the JSON.\n- Do not wrap the JSON in ```json or code fences.\n\nEMAIL TO ANALYZE\n\nSubject:\n{{ $('Get a message').item.json.subject }}\n\nSender:\n{{ $('Get a message').item.json.from.text }}\n\nEmail Body:\n{{ $('Get a message').item.json.text }}\n\nEmail Date:\n{{ $('Get a message').item.json.date }}\n\nMessage ID:\n{{ $('Get a message').item.json.messageId }}\n\n\nCLASSIFICATION RULES\n\n1. category\n\nClassify the email into one of these categories:\n\n- career\n- education\n- meeting\n- finance\n- shopping\n- travel\n- personal\n- notification\n- other\n\nUse \"career\" for job applications, internships, interviews, assessments, recruitment, offers, HR communication, career opportunities, etc.\n\nUse \"education\" for classes, assignments, exams, courses, academic deadlines, college activities, etc.\n\nUse \"meeting\" when the main purpose is a scheduled meeting, call, appointment, interview, conference, or similar event.\n\nUse \"personal\" for casual/personal communication.\n\nUse \"other\" when none of the categories appropriately applies.\n\n\n2. priority\n\nChoose exactly one:\n\n- low\n- medium\n- high\n\nUse \"high\" when the email contains an important deadline, interview, assessment, application requirement, urgent action, or time-sensitive event.\n\nUse \"medium\" for useful but non-urgent actions.\n\nUse \"low\" for informational or casual emails that require little or no action.\n\n\n3. action_required\n\nSet this to true if the recipient needs to do something.\n\nExamples:\n- complete an assessment\n- submit an application\n- reply to an email\n- attend an interview\n- review and submit a document\n- pay a bill\n- register for something\n- complete an assignment\n- confirm attendance\n\nSet this to false for emails such as:\n- greetings\n- newsletters\n- general announcements\n- advertisements\n- informational emails requiring no action\n- emails explicitly saying nothing is required\n\n\n4. summary\n\nWrite a short, clear summary of the important information in the email.\n\nDo not invent information.\n\n\n5. task\n\nIf action_required is true, write a concise description of the task the recipient needs to complete.\n\nIf action_required is false, set task to null.\n\n\n6. deadline\n\nIf the email contains a deadline for completing an action, return the deadline as:\n\nYYYY-MM-DD\n\nIf there is no actionable deadline, return null.\n\nDo not invent a deadline.\n\nIf the email says \"before August 27, 2026\", return:\n\n2026-08-27\n\n\n7. event_required\n\nSet this to true when the email contains a specific scheduled event that should be added to Google Calendar.\n\nExamples:\n- meeting\n- interview\n- appointment\n- scheduled call\n- presentation\n- scheduled class\n- conference\n\nSet this to false when there is no specific scheduled event.\n\n\n8. event_title\n\nIf event_required is true, provide a concise event title.\n\nIf event_required is false, return null.\n\n\n9. event_date\n\nIf event_required is true and a specific date is available, return:\n\nYYYY-MM-DD\n\nOtherwise return null.\n\nDo not confuse an assignment deadline with an event date.\n\n\n10. event_time\n\nIf event_required is true and a specific time is available, return the time in 24-hour format:\n\nHH:MM\n\nExamples:\n11:00 AM → 11:00\n3:30 PM → 15:30\n\nIf no specific event time is available, return null.\n\n\n11. company\n\nIf the email clearly identifies a company, organization, college, or institution associated with the email, provide its name.\n\nOtherwise return null.\n\nDo not guess.\n\n\n12. sender_name\n\nReturn the sender's name when available.\n\nIf unavailable, return null.\n\n\nIMPORTANT DISTINCTION\n\nA deadline is NOT automatically a calendar event.\n\nFor example:\n\n\"Complete the assessment before August 27, 2026.\"\n\nThis means:\n\naction_required = true\ndeadline = \"2026-08-27\"\nevent_required = false\n\nBut:\n\n\"Your interview is scheduled for August 29, 2026 at 3:00 PM.\"\n\nThis means:\n\nevent_required = true\nevent_date = \"2026-08-29\"\nevent_time = \"15:00\"\n\n\nNORMAL EMAIL EXAMPLE\n\nIf the email says:\n\n\"Hi Lakshya,\nHope you're doing well.\nJust wanted to wish you a great weekend.\nNothing is required from your side.\"\n\nReturn:\n\n{\n  \"category\": \"personal\",\n  \"priority\": \"low\",\n  \"action_required\": false,\n  \"summary\": \"A personal greeting with no action required.\",\n  \"task\": null,\n  \"deadline\": null,\n  \"event_required\": false,\n  \"event_title\": null,\n  \"event_date\": null,\n  \"event_time\": null,\n  \"company\": null,\n  \"sender_name\": \"Rahul\"\n}\n\n\nTASK EMAIL EXAMPLE\n\nIf the email says:\n\n\"You have been shortlisted for the Data Analyst Internship. Please complete the online assessment before August 27, 2026.\"\n\nReturn:\n\n{\n  \"category\": \"career\",\n  \"priority\": \"high\",\n  \"action_required\": true,\n  \"summary\": \"Complete the online assessment for the Data Analyst Internship before August 27, 2026.\",\n  \"task\": \"Complete the online assessment\",\n  \"deadline\": \"2026-08-27\",\n  \"event_required\": false,\n  \"event_title\": null,\n  \"event_date\": null,\n  \"event_time\": null,\n  \"company\": null,\n  \"sender_name\": null\n}\n\n\nMEETING EMAIL EXAMPLE\n\nIf the email says:\n\n\"Your weekly project meeting is scheduled for August 22, 2026 at 11:00 AM on Google Meet.\"\n\nReturn:\n\n{\n  \"category\": \"meeting\",\n  \"priority\": \"medium\",\n  \"action_required\": true,\n  \"summary\": \"Weekly project meeting is scheduled for August 22, 2026 at 11:00 AM on Google Meet.\",\n  \"task\": \"Join the weekly project meeting on time.\",\n  \"deadline\": null,\n  \"event_required\": true,\n  \"event_title\": \"Weekly project meeting\",\n  \"event_date\": \"2026-08-22\",\n  \"event_time\": \"11:00\",\n  \"company\": null,\n  \"sender_name\": null\n}\n\n\nFINAL OUTPUT REQUIREMENTS\n\nReturn exactly one JSON object with exactly these fields:\n\n{\n  \"category\": \"career | education | meeting | finance | shopping | travel | personal | notification | other\",\n  \"priority\": \"low | medium | high\",\n  \"action_required\": true,\n  \"summary\": \"string\",\n  \"task\": \"string or null\",\n  \"deadline\": \"YYYY-MM-DD or null\",\n  \"event_required\": true,\n  \"event_title\": \"string or null\",\n  \"event_date\": \"YYYY-MM-DD or null\",\n  \"event_time\": \"HH:MM or null\",\n  \"company\": \"string or null\",\n  \"sender_name\": \"string or null\"\n}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1152,
+        0
+      ],
+      "id": "8f5f87a6-ae4d-4faf-8df4-9b2b6c7d9975",
+      "name": "Message a model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XdZ1Xbqe3GG3A183",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json.content.parts[0].text;\n\nconst data = JSON.parse(response);\n\nreturn {\n  json: data\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        0
+      ],
+      "id": "28f652ab-5873-4ebd-bdd2-bd6724bef61a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "3bebc2e1-bab2-80cd-91eb-dcc3c53d1e39",
+          "mode": "list",
+          "cachedResultName": "AI Tasks",
+          "cachedResultUrl": "https://app.notion.com/p/3bebc2e1bab280cd91ebdcc3c53d1e39"
+        },
+        "title": "={{ $('Code in JavaScript').item.json.task }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Status|status",
+              "statusValue": "Pending"
+            },
+            {
+              "key": "Priority|select",
+              "selectValue": "={{ $('Code in JavaScript').item.json.priority }}"
+            },
+            {
+              "key": "Category|select",
+              "selectValue": "={{ $('Code in JavaScript').item.json.category }}"
+            },
+            {
+              "key": "Due Date|date",
+              "includeTime": false,
+              "timezone": "Asia/Kolkata"
+            },
+            {
+              "key": "Summary|rich_text",
+              "textContent": "={{ $('Code in JavaScript').item.json.summary }}"
+            },
+            {
+              "key": "Email Sender|rich_text",
+              "textContent": "={{ $('Get a message').item.json.from.text }}"
+            },
+            {
+              "key": "Email Subject|rich_text",
+              "textContent": "={{ $('Get a message').item.json.subject }}"
+            },
+            {
+              "key": "Message ID|rich_text",
+              "textContent": "={{ $('Get a message').item.json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [
+        2144,
+        224
+      ],
+      "id": "7b78f783-22cb-42ae-a7b8-04fa60b3f74a",
+      "name": "Create a database page",
+      "credentials": {
+        "notionApi": {
+          "id": "WQCOE1ay0j1e81Ca",
+          "name": "Notion account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "lakshya.garg5785@gmail.com",
+          "mode": "list",
+          "cachedResultName": "lakshya.garg5785@gmail.com"
+        },
+        "start": "={{ DateTime.fromISO($('Code in JavaScript').item.json.event_date + 'T' + ($('Code in JavaScript').item.json.event_time || '09:00'), { zone: 'Asia/Kolkata' }).plus({ hours: 1 }).toISO() }}",
+        "end": "={{ DateTime.fromISO($json.event_date + 'T' + ($json.event_time || '09:00'), { zone: 'Asia/Kolkata' }).plus({ hours: 1 }).toISO() }}",
+        "additionalFields": {
+          "description": "={{ $('Code in JavaScript').item.json.summary }}",
+          "summary": "={{ $('Code in JavaScript').item.json.event_title }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        2128,
+        -240
+      ],
+      "id": "efd52240-b753-45ac-8bf8-43aa7f2c6346",
+      "name": "Create an event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "crCazS1w47Q978WP",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a3ae8296-a656-4433-8d46-cbc6ecb8958b",
+              "leftValue": "={{ $('Code in JavaScript').item.json.event_required }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1872,
+        -224
+      ],
+      "id": "a9cf1f44-a25c-454f-b5dc-c41559ae8c83",
+      "name": "Event If"
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "lyvGKTrISuVb37jm",
+          "mode": "list",
+          "cachedResultName": "Processed Emails",
+          "cachedResultUrl": "/projects/gJ5akAHYtccGW0hT/datatables/lyvGKTrISuVb37jm"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "message_id",
+              "keyValue": "={{ $json.message_id }}"
+            },
+            {
+              "keyName": "duplicate_key",
+              "keyValue": "={{ $json.duplicate_key }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        816,
+        0
+      ],
+      "id": "920f6e8d-8c6c-4ce9-a6f0-e298626d030c",
+      "name": "If row does not exist"
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "lyvGKTrISuVb37jm",
+          "mode": "list",
+          "cachedResultName": "Processed Emails",
+          "cachedResultUrl": "/projects/gJ5akAHYtccGW0hT/datatables/lyvGKTrISuVb37jm"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "message_id": "={{ $('Get a message').item.json.messageId }}",
+            "processed_at": "={{ $now }}",
+            "duplicate_key": "={{ $('Generate Duplicate Key').item.json.duplicate_key }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "message_id",
+              "displayName": "message_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "duplicate_key",
+              "displayName": "duplicate_key",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        976,
+        0
+      ],
+      "id": "b8722188-31d5-4e93-b490-8638b058727b",
+      "name": "Insert row"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fa7a33d4-01dc-4884-b639-0a13b90d5ccc",
+              "leftValue": "={{ $('Code in JavaScript').item.json.action_required }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1904,
+        240
+      ],
+      "id": "269363bf-3533-455a-b073-849c20e8f890",
+      "name": "Task If"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $json;\n\nconst normalize = (value) =>\n  String(value || '')\n    .toLowerCase()\n    .replace(/\\s+/g, ' ')\n    .trim();\n\nconst duplicate_key =\n  normalize(email.sender) +\n  '|' +\n  normalize(email.subject) +\n  '|' +\n  normalize(email.body);\n\nreturn [\n  {\n    json: {\n      ...email,\n      duplicate_key\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "6e188280-7a6f-482f-b145-767a5596f5b5",
+      "name": "Generate Duplicate Key"
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $json;\n\nconst sender =\n  email.from?.value?.[0]?.address || '';\n\nconst senderName =\n  email.from?.value?.[0]?.name || '';\n\nconst subject =\n  email.subject || '';\n\nconst body =\n  email.text || '';\n\nconst messageId =\n  email.messageId || '';\n\nreturn [\n  {\n    json: {\n      message_id: messageId,\n      sender,\n      sender_name: senderName,\n      subject: subject.trim(),\n      body: body.trim(),\n      received_at: email.date || null\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "bb9ccf14-a9b8-4e23-98b6-947d9ff7af1a",
+      "name": "Normalize Email"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Normalize Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Event If",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Task If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event": {
+      "main": [
+        []
+      ]
+    },
+    "Event If": {
+      "main": [
+        [
+          {
+            "node": "Create an event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If row does not exist": {
+      "main": [
+        [
+          {
+            "node": "Insert row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert row": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task If": {
+      "main": [
+        [
+          {
+            "node": "Create a database page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Generate Duplicate Key": {
+      "main": [
+        [
+          {
+            "node": "If row does not exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Email": {
+      "main": [
+        [
+          {
+            "node": "Generate Duplicate Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "61dfb798-bdbe-4df0-9706-df7f3e41bcac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9edda98c381d83d4c60cd7a5846a17d845507626d63a7bb7e7d0e43c5cc651e9"
+  },
+  "nodeGroups": [],
+  "id": "dl5JObKVf2RfTA88",
+  "tags": []
+}
